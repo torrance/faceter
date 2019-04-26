@@ -8,7 +8,7 @@ set -x
 
 
 # Parse parameters
-LONG='size:,center:,scale:,oversample:,channelsout:,threshold:,maxsize:,minsize:,datacolumn:,calopts:,wscleanopts:,weight:,noprimarybeam'
+LONG='size:,center:,scale:,oversample:,channelsout:,threshold:,maxsize:,minsize:,datacolumn:,calopts:,wscleanopts:,weight:,noprimarybeam,mwapath:'
 OPTS=$(getopt --options '' --longoptions $LONG --name "$0" -- "$@")
 eval set -- "$OPTS"
 
@@ -79,6 +79,10 @@ while true; do
       noprimarybeam=true
       shift 1
       ;;
+    --mwapath )
+      mwapath="-mwa-path $2"
+      shift 2
+      ;;
     -- )
       shift
       break
@@ -102,7 +106,7 @@ if [[ $# < 1 ]]; then
 fi
 
 if [[ $noprimarybeam = false ]]; then
-  wscleanopts="$wscleanopts -apply-primary-beam"
+  wscleanopts="$wscleanopts $mwapath -apply-primary-beam"
   pb="-pb"
 fi
 
