@@ -189,8 +189,8 @@ prepare_cols() {
   done
 }
 
-#setup
-#fullsky
+setup
+fullsky
 create_facets
 prepare_cols
 
