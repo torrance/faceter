@@ -8,7 +8,7 @@ set -x
 
 
 # Parse parameters
-LONG='size:,center:,scale:,oversample:,channelsout:,threshold:,maxsize:,minsize:,datacolumn:,calopts:,wscleanopts:,weight:,noprimarybeam,mwapath:'
+LONG='size:,center:,scale:,oversample:,channelsout:,threshold:,maxsize:,minsize:,datacolumn:,calopts:,wscleanopts:,weight:,noprimarybeam,mwapath:,subroutines:,facetid:'
 OPTS=$(getopt --options '' --longoptions $LONG --name "$0" -- "$@")
 eval set -- "$OPTS"
 
@@ -24,6 +24,7 @@ calopts=""
 wscleanopts=""
 weight="briggs 0.5"
 noprimarybeam=false
+mwapath=""
 
 while true; do
   case "$1" in
@@ -81,6 +82,16 @@ while true; do
       ;;
     --mwapath )
       mwapath="-mwa-path $2"
+      shift 2
+      ;;
+    --subroutines )
+      IFS=','
+      subroutines=( $2 )
+      unset IFS
+      shift 2
+      ;;
+    --facetid )
+      facetid="$2"
       shift 2
       ;;
     -- )
@@ -189,20 +200,9 @@ prepare_cols() {
   done
 }
 
-setup
-fullsky
-create_facets
-prepare_cols
-
-for model in facet-?-0000-model.fits facet-??-0000-model.fits; do
-  if [[ ! -f $model ]]; then
-    continue
-  fi
-
-  facetid=$(echo $model | cut -d '-' -f 2)
-  echo "Processing facet $facetid"
-
+pre_predict() {
   # Predict facet into MODEL_DATA column
+  local mset
   for mset in ${splits[@]}; do
     chgcentre $mset $center
   done
@@ -219,11 +219,12 @@ for model in facet-?-0000-model.fits facet-??-0000-model.fits; do
     -predict \
     -temp-dir /tmp \
     ${splits[@]}
+}
 
-  facetcenter=$(fitsheader -k FCTCEN -t ascii.csv $model | tail -n 1 | cut -d ',' -f 4)
+split_facet() {
   for i in ${!splits[@]}; do
-    mset=${splits[$i]}
-    facet=${facets[$i]}
+    local mset=${splits[$i]}
+    local facet=${facets[$i]}
 
     # Add prediction to residuals
     columnabacus.py ${mset}::CORRECTED_DATA = ${mset}::CORRECTED_DATA + ${mset}::MODEL_DATA
@@ -234,12 +235,17 @@ for model in facet-?-0000-model.fits facet-??-0000-model.fits; do
     chgcentre ${mset} $facetcenter
     echo "split(vis='${mset}', outputvis='${facet}', datacolumn='CORRECTED', width=8)" | ~/casa/bin/casa -nologger --agg --nogui -c
   done
+}
 
-  # Calculate size
+set_facet_vars() {
+  local model="facet-${1}-0000-model.fits"
+  facetcenter=$(fitsheader -k FCTCEN -t ascii.csv $model | tail -n 1 | cut -d ',' -f 4)
   finescale=$(echo "scale=6; $scale / $oversample" | bc)
-  maxangulardist=$(fitsheader -k FCTMAX -t ascii.csv $model | tail -n 1 | cut -d ',' -f 4)
+  local maxangulardist=$(fitsheader -k FCTMAX -t ascii.csv $model | tail -n 1 | cut -d ',' -f 4)
   pixels=$(echo "(($maxangulardist / $finescale) * 2.2) / 1" | bc)  # divide by 1 to round to integer
+}
 
+image_before() {
   # Image facet
   wsclean \
     -name facet-${facetid}-before \
@@ -262,17 +268,22 @@ for model in facet-?-0000-model.fits facet-??-0000-model.fits; do
     -temp-dir /tmp \
     $wscleanopts \
     ${facets[@]}
+}
 
+selfcal() {
   # Selfcalibrate each input mset based on the jointly imaged model
+  local i
   for i in ${!facets[@]}; do
-    facet=${facets[$i]}
+    local facet=${facets[$i]}
     calibrate -datacolumn DATA -a 5e-6 1e-8 $calopts $facet solutions-facet-${facetid}-${i}.bin
     applysolution.py --src DATA --dest CORRECTED_DATA $facet solutions-facet-${facetid}-${i}.bin
   done
 
   # Create clean mask based on first imaging round
   create_mask.py --max $maxsize --facetid $facetid --image facet-${facetid}-before-MFS-image.fits
+}
 
+post_predict() {
   # Image calibrated ms and build improved model
   wsclean \
     -name facet-${facetid}-after \
@@ -298,6 +309,7 @@ for model in facet-?-0000-model.fits facet-??-0000-model.fits; do
     ${facets[@]}
 
   # Predict corrected facet into MODEL_DATA column
+  local mset
   for mset in ${splits[@]}; do
     chgcentre $mset $facetcenter
   done
@@ -313,8 +325,12 @@ for model in facet-?-0000-model.fits facet-??-0000-model.fits; do
     -predict \
     -temp-dir /tmp \
     ${splits[@]}
+}
 
+subtract() {
   # Update residuals and data of each mset with new calibration and model data
+  local i
+  local mset
   for i in ${!splits[@]}; do
     mset=${splits[$i]}
 
@@ -326,27 +342,80 @@ for model in facet-?-0000-model.fits facet-??-0000-model.fits; do
     # Update residuals
     columnabacus.py ${mset}::CORRECTED_DATA = ${mset}::CORRECTED_DATA - ${mset}::MODEL_DATA
   done
+}
+
+fullsky_corrected() {
+  # Do fullsky image of corrected data
+  wsclean \
+    -name fullsky-corrected \
+    -size $size $size \
+    -scale $scale \
+    -mgain 0.8 \
+    -niter 9999999 \
+    -nmiter 12 \
+    -pol i \
+    -auto-threshold 3 \
+    -channels-out $channelsout \
+    -fit-spectral-pol 2 \
+    -join-channels \
+    -weight $weight \
+    -parallel-deconvolution 1024 \
+    -use-idg \
+    -idg-mode hybrid \
+    -data-column DATA \
+    -temp-dir /tmp \
+    $wscleanopts \
+    ${splits[@]}
+}
+
+# Run specified subroutine if it exists
+if [[ -n $subroutines ]]; then
+  if [[ -n $facetid ]]; then
+    set_facet_vars $facetid
+  fi
+
+  for subroutine in ${subroutines[@]}; do
+    $subroutine
+  done
+
+  exit 0
+fi
+
+# Otherwise, run full faceting algorithm...
+setup
+fullsky
+create_facets
+prepare_cols
+
+for model in facet-?-0000-model.fits facet-??-0000-model.fits; do
+  if [[ ! -f $model ]]; then
+    continue
+  fi
+
+  facetid=$(echo $model | cut -d '-' -f 2)
+  echo "Processing facet $facetid"
+
+  # Set global variables for this facet (facetcenter, finescale, pixels)
+  set_facet_vars $facetid
+
+  # Predict facet into model column
+  pre_predict
+
+  # Phase rotate on facet center and split into frequency averaged msets ("splits")
+  split_facet
+
+  # Image facet before (populate model column)
+  image_before
+
+  # Selfcal (and create clean mask)
+  selfcal
+
+  # Reimage after calibration and predict new model into mset
+  post_predict
+
+  # Subtract out and update new facet model
+  subtract
 
 done
 
-# Do fullsky image of corrected data
-wsclean \
-  -name fullsky-corrected \
-  -size $size $size \
-  -scale $scale \
-  -mgain 0.8 \
-  -niter 9999999 \
-  -nmiter 12 \
-  -pol i \
-  -auto-threshold 3 \
-  -channels-out $channelsout \
-  -fit-spectral-pol 2 \
-  -join-channels \
-  -weight $weight \
-  -parallel-deconvolution 1024 \
-  -use-idg \
-  -idg-mode hybrid \
-  -data-column DATA \
-  -temp-dir /tmp \
-  $wscleanopts \
-  ${splits[@]}
+fullsky_corrected
