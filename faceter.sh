@@ -1,4 +1,5 @@
 #! /bin/bash
+source ~/.profile
 
 # Save arguments to file
 echo "faceter.sh $@" > faceter-$(date +%s).last
@@ -165,7 +166,6 @@ fullsky () {
     -use-idg \
     -idg-mode hybrid \
     -data-column DATA \
-    -temp-dir /tmp \
     $wscleanopts \
     ${splits[@]}
 
@@ -217,7 +217,6 @@ pre_predict() {
     -use-idg \
     -idg-mode hybrid \
     -predict \
-    -temp-dir /tmp \
     ${splits[@]}
 }
 
@@ -265,7 +264,6 @@ image_before() {
     -data-column DATA \
     -use-idg \
     -idg-mode hybrid \
-    -temp-dir /tmp \
     $wscleanopts \
     ${facets[@]}
 }
@@ -304,7 +302,6 @@ post_predict() {
     -use-idg \
     -idg-mode hybrid \
     -fits-mask facet-${facetid}-mask.fits \
-    -temp-dir /tmp \
     $wscleanopts \
     ${facets[@]}
 
@@ -323,7 +320,6 @@ post_predict() {
     -use-idg \
     -idg-mode hybrid \
     -predict \
-    -temp-dir /tmp \
     ${splits[@]}
 }
 
@@ -363,7 +359,6 @@ fullsky_corrected() {
     -use-idg \
     -idg-mode hybrid \
     -data-column DATA \
-    -temp-dir /tmp \
     $wscleanopts \
     ${splits[@]}
 }
