@@ -18,7 +18,7 @@ size=7500
 oversample=2
 channelsout=6
 threshold=4
-maxsize=4
+maxsize=999
 minsize=0.5
 datacolumn=CORRECTED
 calopts=""
@@ -183,7 +183,7 @@ create_facets () {
   rm facet_centers.pkl dists.npy facet-*-model.fits || true
   local i
   for i in $(seq 0 $((channelsout - 1)) ); do
-    create_facets.py --threshold $threshold --min $minsize --max $maxsize --channel 000${i} --image fullsky-MFS-image.fits --model fullsky-000${i}-model${pb}.fits
+    create_gridfacets.py --channel 000${i} --model fullsky-000${i}-model${pb}.fits --center "$center" --max $maxsize
   done
 }
 
@@ -232,7 +232,7 @@ split_facet() {
     rm -r ${facet} || true
     # TODO calculate width based on maximum angular size of facet
     chgcentre ${mset} $facetcenter
-    echo "split(vis='${mset}', outputvis='${facet}', datacolumn='CORRECTED', width=8)" | ~/casa/bin/casa -nologger --agg --nogui -c
+    echo "split(vis='${mset}', outputvis='${facet}', datacolumn='CORRECTED', width=6)" | ~/casa/bin/casa -nologger --agg --nogui -c
   done
 }
 
@@ -264,6 +264,7 @@ image_before() {
     -data-column DATA \
     -use-idg \
     -idg-mode hybrid \
+    -parallel-deconvolution 1024 \
     $wscleanopts \
     ${facets[@]}
 }
@@ -301,6 +302,7 @@ post_predict() {
     -data-column CORRECTED_DATA \
     -use-idg \
     -idg-mode hybrid \
+    -parallel-deconvolution 1024 \
     -fits-mask facet-${facetid}-mask.fits \
     $wscleanopts \
     ${facets[@]}
@@ -377,17 +379,18 @@ if [[ -n $subroutines ]]; then
 fi
 
 # Otherwise, run full faceting algorithm...
-setup
-fullsky
-create_facets
-prepare_cols
+#setup
+#fullsky
+#create_facets
+#prepare_cols
 
-for model in facet-?-0000-model.fits facet-??-0000-model.fits; do
-  if [[ ! -f $model ]]; then
-    continue
-  fi
+if [[ -f facet_order ]]; then
+  facet_order=$(cat facet_order)
+else
+  facet_order="1 2 3 4 5 6 7 8 9"
+fi
 
-  facetid=$(echo $model | cut -d '-' -f 2)
+for facetid in $facet_order; do
   echo "Processing facet $facetid"
 
   # Set global variables for this facet (facetcenter, finescale, pixels)

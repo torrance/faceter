@@ -68,25 +68,6 @@ def main(args):
     for i, facet_center in enumerate(facet_centers):
         facet_model = model.copy()
         facet_model.data[closest != i] = 0
-        # idxs = np.argwhere(closest[0, 0] == i)
-
-        # Reduce size of model image just to facet area
-        # x is dec, y is ra !
-        # border = 10
-        # minx, maxx, miny, maxy = idxs[:, 0].min(), idxs[:, 0].max() + 1, idxs[:, 1].min(), idxs[:, 1].max() + 1
-        # minx, maxx = max(0, minx - border), min(facet_model.data.shape[2], maxx + border)
-        # miny, maxy = max(0, miny - border), min(facet_model.data.shape[3], maxy + border)
-
-        # rectangular_model = facet_model.data[:, :, minx:maxx, miny:maxy]
-
-        # Awkwardly, IDG requires square grids. So we pad with zeros until the grid is square
-        # size = max(rectangular_model.shape)
-        # square = np.zeros((1, 1, size, size))
-        # square[:, :, 0:rectangular_model.shape[2], 0:rectangular_model.shape[3]] = rectangular_model
-        #facet_model.data = square
-
-        # facet_model.header['CRPIX1'] -= miny
-        # facet_model.header['CRPIX2'] -= minx
 
         # Add metadata for later retrieval
         # Facet center

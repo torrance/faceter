@@ -56,7 +56,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--max', default=4.0, type=float, help='Maximum facet radius (degrees)')
+    parser.add_argument('--max', default=999, type=float, help='Maximum facet radius (degrees)')
     parser.add_argument('--facetid', type=int, required=True)
     parser.add_argument('--image', required=True)
     args = parser.parse_args()
