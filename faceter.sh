@@ -143,7 +143,7 @@ setup () {
 
     # Split out mset
     rm -r ${split} || true
-    echo "split(vis='${mset}', outputvis='${split}', datacolumn='${datacolumn}')" | ~/casa/bin/casa -nologger --agg --nogui -c
+    echo "split(vis='${mset}', outputvis='${split}', datacolumn='${datacolumn}')" | env -i HOME="$HOME" ~/casa/bin/casa -nologger --agg --nogui -c
   done
 }
 
@@ -232,7 +232,7 @@ split_facet() {
     rm -r ${facet} || true
     # TODO calculate width based on maximum angular size of facet
     chgcentre ${mset} $facetcenter
-    echo "split(vis='${mset}', outputvis='${facet}', datacolumn='CORRECTED', width=6)" | ~/casa/bin/casa -nologger --agg --nogui -c
+    echo "split(vis='${mset}', outputvis='${facet}', datacolumn='CORRECTED', width=6)" | env -i HOME="$HOME" ~/casa/bin/casa -nologger --agg --nogui -c
   done
 }
 
