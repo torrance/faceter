@@ -379,10 +379,10 @@ if [[ -n $subroutines ]]; then
 fi
 
 # Otherwise, run full faceting algorithm...
-#setup
-#fullsky
-#create_facets
-#prepare_cols
+setup
+fullsky
+create_facets
+prepare_cols
 
 if [[ -f facet_order ]]; then
   facet_order=$(cat facet_order)
