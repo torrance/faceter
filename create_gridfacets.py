@@ -77,7 +77,7 @@ def main(args):
     print("Done", file=sys.stderr)
 
     facet_centers = []
-    radius = np.radians(10)
+    radius = np.radians(2 * args.radius)
 
     # See a point on uinit sphere radius away from origin
     r0, theta0, phi0 = 1, np.pi / 2  - radius, 0
@@ -175,5 +175,6 @@ if __name__ == '__main__':
     parser.add_argument('--channel', required=True)
     parser.add_argument('--max', type=float, default=999)
     parser.add_argument('--center', type=str, required=True)
+    parser.add_argument('--radius', type=float, default=5)
     args = parser.parse_args()
     main(args)

@@ -9,7 +9,7 @@ set -x
 
 
 # Parse parameters
-LONG='size:,center:,scale:,oversample:,channelsout:,threshold:,maxsize:,minsize:,datacolumn:,calopts:,wscleanopts:,weight:,noprimarybeam,mwapath:,subroutines:,facetid:'
+LONG='size:,center:,scale:,oversample:,channelsout:,threshold:,maxsize:,radius:,datacolumn:,calopts:,wscleanopts:,weight:,noprimarybeam,mwapath:,subroutines:,facetid:'
 OPTS=$(getopt --options '' --longoptions $LONG --name "$0" -- "$@")
 eval set -- "$OPTS"
 
@@ -19,7 +19,7 @@ oversample=2
 channelsout=6
 threshold=4
 maxsize=999
-minsize=0.5
+radius=5
 datacolumn=CORRECTED
 calopts=""
 wscleanopts=""
@@ -57,8 +57,8 @@ while true; do
       maxsize="$2"
       shift 2
       ;;
-    --minsize )
-      minsize="$2"
+    --radius )
+      radius="$2"
       shift 2
       ;;
     --datacolumn )
@@ -183,7 +183,7 @@ create_facets () {
   rm facet_centers.pkl dists.npy facet-*-model.fits || true
   local i
   for i in $(seq 0 $((channelsout - 1)) ); do
-    create_gridfacets.py --channel 000${i} --model fullsky-000${i}-model${pb}.fits --center "$center" --max $maxsize
+    create_gridfacets.py --channel 000${i} --model fullsky-000${i}-model${pb}.fits --center "$center" --max $maxsize --radius $radius
   done
 }
 
