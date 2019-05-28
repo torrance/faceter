@@ -15,25 +15,16 @@ set -x
 jobid=$(sbatch $workq_params -- \
         faceter.sh --subroutines prepare_cols "${params[@]}" ${msets[@]} | cut -d ' ' -f 4)
 
-for model in facet-?-0000-model.fits facet-??-0000-model.fits; do
-  if [[ ! -f $model ]]; then
-    continue
-  fi
+if [[ -f facet_order ]]; then
+  facet_order=$(cat facet_order)
+else
+  facet_order="1 2 3 4 5 6 7 8 9"
+fi
 
-  facetid=$(echo $model | cut -d '-' -f 2)
-
-  jobid=$(sbatch $gpu_params -d afterok:${jobid} -- \
-          faceter.sh --subroutines pre_predict --facetid $facetid "${params[@]}" ${msets[@]} | cut -d ' ' -f 4)
-  jobid=$(sbatch $workq_params -d afterok:${jobid} -- \
-          faceter.sh --subroutines split_facet --facetid $facetid "${params[@]}" ${msets[@]} | cut -d ' ' -f 4)
-  jobid=$(sbatch $gpuq_params-d afterok:${jobid} -- \
-          faceter.sh --subroutines image_before --facetid $facetid "${params[@]}" ${msets[@]} | cut -d ' ' -f 4)
-  jobid=$(sbatch $workq_params -d afterok:${jobid} -- \
-          faceter.sh --subroutines selfcal --facetid $facetid "${params[@]}" ${msets[@]} | cut -d ' ' -f 4)
-  jobid=$(sbatch $gpuq_params -d afterok:${jobid} -- \
-          faceter.sh --subroutines post_predict --facetid $facetid "${params[@]}" ${msets[@]} | cut -d ' ' -f 4)
-  jobid=$(sbatch $workq_params -d afterok:${jobid} -- \
-          faceter.sh --subroutines subtract --facetid $facetid "${params[@]}" ${msets[@]} | cut -d ' ' -f 4)
+for facetid in $facet_order; do
+  jobid=$(sbatch $gpuq_params -t 16:00:00 -d afterok:${jobid} \
+          faceter.sh --subroutines pre_predict,split_facet,image_before,selfcal,post_predict,subtract \
+                     --facetid $facetid "${params[@]}" ${msets[@]} | cut -d ' ' -f 4)
 done
 
 jobid=$(sbatch $gpuq_params -d afterok:${jobid} -- \
