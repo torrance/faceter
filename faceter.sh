@@ -118,7 +118,7 @@ if [[ $# < 1 ]]; then
 fi
 
 if [[ $noprimarybeam = false ]]; then
-  wscleanopts="$wscleanopts $mwapath -apply-primary-beam"
+  wscleanopts="$wscleanopts $mwapath -grid-with-beam"
   pb="-pb"
 fi
 
